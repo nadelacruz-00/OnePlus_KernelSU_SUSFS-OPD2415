@@ -790,9 +790,21 @@ runs:
             "--header=Connection: keep-alive"
           )
           
+          # GitHub serves a commit-SHA archive only at /archive/<sha>.tar.gz;
+          # /archive/refs/heads/<sha>.tar.gz returns 404. The SUSFS ref is
+          # normally a 40-char SHA, so pick the form based on the ref itself.
+          local ref_is_sha=0
+          if [[ "$branch" =~ ^[0-9a-f]{40}$ ]]; then
+              ref_is_sha=1
+          fi
+
           local download_url=""
           if [[ "$url" == *"github.com"* ]]; then
-              download_url="${url%.git}/archive/refs/heads/${branch}.tar.gz"
+              if [ "$ref_is_sha" = 1 ]; then
+                  download_url="${url%.git}/archive/${branch}.tar.gz"
+              else
+                  download_url="${url%.git}/archive/refs/heads/${branch}.tar.gz"
+              fi
           elif [[ "$url" == *"gitlab.com"* ]]; then
               download_url="${url%.git}/-/archive/${branch}/${repo_name}-${branch}.tar.gz"
           else
@@ -859,8 +871,16 @@ runs:
         if [ "${{ env.OP_SUSFS }}" = true ]; then
           echo "Using SUSFS branch/commit: $SUSFS_BRANCH"
           if ! retry_fetch_archive "https://gitlab.com/simonpunk/susfs4ksu.git" "$SUSFS_BRANCH"; then
-            echo "::error::Failed to fetch SUSFS archive after multiple attempts"
-            exit 1
+            # GitLab's archive endpoint intermittently refuses GitHub runner IPs
+            # (transient 403/429 from its CDN). Fall back to a read-only GitHub
+            # mirror of the same repository so a flaky CDN cannot fail the build.
+            # The mirror carries the same branch/history, so the pinned commit
+            # resolves identically.
+            echo "::warning::GitLab SUSFS fetch failed - trying the GitHub mirror"
+            if ! retry_fetch_archive "https://github.com/nadelacruz-00/susfs4ksu.git" "$SUSFS_BRANCH"; then
+              echo "::error::Failed to fetch SUSFS archive from GitLab and from the mirror"
+              exit 1
+            fi
           fi
           echo "SUSFS_COMMIT_SHA=$SUSFS_BRANCH" >> $GITHUB_ENV
         fi

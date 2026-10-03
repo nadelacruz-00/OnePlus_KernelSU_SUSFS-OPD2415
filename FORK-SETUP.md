@@ -14,6 +14,7 @@ All credit to the WildKernels project.
 | 5 | `patches/custom_defconfig.txt` + **Apply Fork Custom Patches** step | Declares the full Droidspaces GKI config explicitly, right before the build. |
 | 6 | `patches/required_config.txt` + **Verify Droidspaces kernel config** step | **Fails the build** if any required option is missing from `out/.config`. |
 | 7 | `kernel-source-sync` cache repo → upstream public repo | Fork's own `toolchain-cache` release does not exist, and the lookup uses unauthenticated `curl`/`aria2c`, so a private repo would 404 and abort. |
+| 8 | `retry_fetch_archive` handles commit SHAs; SUSFS fetch falls back to a GitHub mirror | GitLab's archive endpoint intermittently refuses GitHub runner IPs, which failed build #1. See below. |
 
 ## Why the config guard exists
 
@@ -63,6 +64,52 @@ The Pad 3 is A/B. Flash to the **inactive** slot so the working kernel is never 
 Slot state lives in the **GPT attributes** (bit 54 = `successful_boot`, bits 48-49 priority,
 bits 50-52 `tries_remaining`), so a non-booting kernel should revert on its own — see
 `../shared/opd2415-wildkernel-fork/gpt-slot-analysis/`.
+
+## SUSFS source: GitLab first, GitHub mirror as fallback
+
+Build #1 died after 2.5 minutes with:
+
+```
+ Attempt 1/3: High-speed fetch for susfs4ksu (a0f9c59e...)
+##[error]All attempts failed for https://gitlab.com/simonpunk/susfs4ksu.git
+```
+
+The URL itself is fine — 200, valid tar — so this is GitLab's CDN intermittently refusing
+GitHub runner IPs. A kernel build should not depend on that.
+
+**Two changes:**
+
+1. `retry_fetch_archive` now distinguishes a commit SHA from a branch. GitHub serves
+   `/archive/<sha>.tar.gz` but **not** `/archive/refs/heads/<sha>.tar.gz` (404) — and the
+   SUSFS ref is normally a 40-char SHA.
+2. If GitLab fails, the step retries against a read-only **GitHub mirror**:
+   <https://github.com/nadelacruz-00/susfs4ksu>
+
+**Why a mirror at all, and why a single branch.** `git clone --mirror` of susfs4ksu is
+**2.2 GB** — impractical. One branch is enough:
+
+```bash
+git clone --single-branch --branch gki-android15-6.6 --no-checkout \
+    https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu   # 28.7 MB
+cd susfs4ksu
+git remote add gh https://github.com/nadelacruz-00/susfs4ksu.git
+git push gh gki-android15-6.6
+```
+
+The pinned commit `a0f9c59e2243f8a5db955f4ad1686d5e0ad26e1a` is present in that branch, and
+GitHub serves its archive because the commit is reachable from a ref. Verified:
+`archive/<sha>.tar.gz` → 200.
+
+**Provenance:** GitLab stays the *primary* source — it is the SUSFS author's own repo. The
+mirror is only consulted after GitLab has failed outright. To drop the fallback, delete the
+single `retry_fetch_archive "https://github.com/nadelacruz-00/susfs4ksu.git"` branch in
+`action.yml`; nothing else depends on it.
+
+To refresh the mirror later:
+
+```bash
+cd susfs4ksu && git fetch origin gki-android15-6.6 && git push gh gki-android15-6.6
+```
 
 ## cgroup `devices` / `pids` — checked, NOT needed
 
