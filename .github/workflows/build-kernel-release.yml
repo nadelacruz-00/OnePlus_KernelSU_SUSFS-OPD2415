@@ -73,7 +73,22 @@ on:
       android15-6_6_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android15-6.6'
         type: string
-        default: ''
+        # Pinned to the newest susfs4ksu commit that still declares
+        # SUSFS_VERSION "v2.2.0".
+        #
+        # Why: leaving this empty makes the workflow resolve the
+        # gki-android15-6.6 branch HEAD. Since 2026-08-30 (commit eba2a88a
+        # "Bump version to 2.3.0") that HEAD is v2.3.0, and the build action
+        # only handles v1.5.8 .. v2.2.0 -- it aborts with
+        # "Unsupported SUSFS version: v2.3.0". Upstream main has the exact
+        # same gap, so this is an upstream issue, not a local one.
+        #
+        # This commit (2026-08-30, "KernelSU: Sync with the official KernelSU
+        # main repo") is the last v2.2.0 one, and v2.2.0 is also the SUSFS
+        # version already running on the target device.
+        #
+        # Revert to '' once upstream adds v2.3.0 handling.
+        default: 'da55e071ad01fac61fafcfc2b0c66ac22f5c44bf'
       android16-6_12_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android16-6.12'
         type: string
