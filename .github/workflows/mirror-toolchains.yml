@@ -4,8 +4,10 @@ permissions:
   contents: write
 
 on:
-  schedule:
-    - cron: '0 0 * * 0' # Every Sunday at 00:00 UTC
+  # NOTE: upstream also runs this weekly via `schedule`. Removed here so a
+  # device-specific derivative never mirrors 150+ toolchains on a timer.
+  # The toolchain cache is served from the upstream (public) repo instead --
+  # see .github/actions/kernel-source-sync/action.yml.
   workflow_dispatch:
   workflow_call:
 

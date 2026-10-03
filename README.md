@@ -1,3 +1,25 @@
+> ### 📌 Derivative, device-specific build repository
+>
+> This repo is a **derivative of
+> [WildKernels/OnePlus_KernelSU_SUSFS](https://github.com/WildKernels/OnePlus_KernelSU_SUSFS)**
+> by **[@fatalcoder524](https://github.com/fatalcoder524)** and the WildKernels project.
+> All kernel sources, build tooling, patch sets and the KernelSU / SUSFS integration come
+> from that project. **All credit belongs to them** — please support them, not this repo.
+>
+> The only changes here:
+> - builds **one device only**: OnePlus Pad 3 / OPD2415 (SM8750, kernel 6.6.89)
+> - pins the full **Droidspaces** kernel configuration and adds a build-time guard that
+>   **fails the build** if a required option is missing
+> - serves the toolchain cache from the upstream **public** repo rather than mirroring ~1.1 GB locally
+> - drops the upstream cron workflows (device monitor, weekly toolchain mirror)
+>
+> Need this kernel for another device? Use **[upstream](https://github.com/WildKernels/OnePlus_KernelSU_SUSFS)**, not this repo.
+>
+> Upstream: <https://github.com/WildKernels/OnePlus_KernelSU_SUSFS> ·
+> Patches: <https://github.com/WildKernels/kernel_patches>
+
+---
+
 <div align="center">
 
 # 🔥 Wild Kernels for OnePlus (Oppo/Realme)

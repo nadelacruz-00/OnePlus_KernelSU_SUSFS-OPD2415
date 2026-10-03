@@ -1,0 +1,41 @@
+# Required kernel config options - verified after the build.
+#
+# Read by the "Verify Droidspaces kernel config" step, which greps the
+# generated kernel_platform/common/out/.config and FAILS THE BUILD if any
+# line here is not satisfied.
+#
+# Why this exists: this project once shipped a kernel that silently lacked
+# CONFIG_USER_NS, because the option was simply not in the config-writing step
+# at the time. Nothing failed - the build was green, the flash worked, and the
+# breakage only showed up much later as "docker-compose up can never start a
+# container". A build that cannot satisfy this list is not worth flashing.
+#
+# Format: one CONFIG_ per line, no leading spaces, # starts a comment.
+# Each must appear in out/.config as exactly CONFIG_NAME=y.
+
+# --- IPC -------------------------------------------------------------------
+CONFIG_SYSVIPC=y
+CONFIG_POSIX_MQUEUE=y
+
+# --- Namespaces ------------------------------------------------------------
+CONFIG_NAMESPACES=y
+CONFIG_IPC_NS=y
+CONFIG_PID_NS=y
+CONFIG_USER_NS=y
+
+# --- HW access -------------------------------------------------------------
+CONFIG_DEVTMPFS=y
+
+# --- Networking ------------------------------------------------------------
+CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
+CONFIG_NETFILTER_XT_TARGET_REJECT=y
+CONFIG_NETFILTER_XT_TARGET_LOG=y
+CONFIG_NETFILTER_XT_MATCH_RECENT=y
+CONFIG_IP_SET=y
+CONFIG_IP_SET_HASH_IP=y
+CONFIG_IP_SET_HASH_NET=y
+CONFIG_NETFILTER_XT_SET=y
+
+# --- tmpfs -----------------------------------------------------------------
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_TMPFS_XATTR=y

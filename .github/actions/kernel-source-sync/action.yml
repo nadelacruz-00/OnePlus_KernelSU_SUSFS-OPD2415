@@ -49,6 +49,20 @@ runs:
         
         MAX_WORKERS = (os.cpu_count() or 2) * 4
         NPROC = int(subprocess.check_output("nproc", shell=True).strip())
+        # Toolchain cache source.
+        #
+        # Upstream WildKernels is a PUBLIC repo that already hosts every cached
+        # toolchain revision this device's manifest pins, so a device-specific
+        # derivative does not need to mirror ~1.1 GB before its first build.
+        #
+        # This matters because the lookups below use unauthenticated curl /
+        # aria2c: release assets on a PRIVATE repo would return 404 and the
+        # sync would abort with "Toolchain NOT FOUND in GitHub Release cache".
+        # Serving the cache from a public repo sidesteps that entirely.
+        #
+        # Override with the TOOLCHAIN_CACHE_REPO env var if you ever want to
+        # use your own mirror instead.
+        CACHE_REPO = os.environ.get("TOOLCHAIN_CACHE_REPO", "WildKernels/OnePlus_KernelSU_SUSFS")
         TARGET_REPO = "${{ github.repository }}"
         TOOLCHAIN_MAP = {
             "clang/host/linux-x86": "clang",
@@ -100,7 +114,7 @@ runs:
                     found_in_cache = False
                     if label:
                         base_filename = f"{label}-{rev}.tar.gz"
-                        BASE_URL = f"https://github.com/{TARGET_REPO}/releases/download/toolchain-cache"
+                        BASE_URL = f"https://github.com/{CACHE_REPO}/releases/download/toolchain-cache"
                         
                         check_single = f"curl -IsL {curl_headers} --retry 10 --connect-timeout 30 -o /dev/null -w '%{{http_code}}' {BASE_URL}/{base_filename}"
                         if subprocess.check_output(check_single, shell=True).decode().strip() == "200":

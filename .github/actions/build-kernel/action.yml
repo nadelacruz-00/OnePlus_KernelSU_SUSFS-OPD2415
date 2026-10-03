@@ -1868,6 +1868,56 @@ runs:
           patch -p1 < "$KERNEL_PATCHES_FOLDER/common/vendor_modules/0001-Support-conditional-vendor-modules-blacklisting-6.1-and-above.patch"
         fi
         
+    # =====================================================================
+    # FORK HOOK - applies this derivative's own kernel changes.
+    # Runs after every upstream patch/config step and immediately before
+    # the build, so nothing upstream can overwrite these values.
+    # =====================================================================
+    - name: Apply Fork Custom Patches
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Fork customisations"
+
+        FORK_ROOT="$GITHUB_WORKSPACE"
+        TARGET="$COMMON_KERNEL_FOLDER"
+        DEFCONFIG_EXTRA="$FORK_ROOT/patches/custom_defconfig.txt"
+        applied=0
+
+        # --- 1. extra defconfig entries --------------------------------
+        if [ -f "$DEFCONFIG_EXTRA" ]; then
+          n_lines=$(grep -cve '^[[:space:]]*$' "$DEFCONFIG_EXTRA" || true)
+          echo "Appending defconfig entries from patches/custom_defconfig.txt ($n_lines line(s)):"
+          grep -ve '^[[:space:]]*$' "$DEFCONFIG_EXTRA" | sed 's/^/    /' || true
+          {
+            echo ""
+            echo "# ---- fork customisations ----"
+            cat "$DEFCONFIG_EXTRA"
+          } >> "$TARGET/arch/arm64/configs/gki_defconfig"
+          echo "OK: gki_defconfig extended"
+        else
+          echo "No patches/custom_defconfig.txt - skipping defconfig additions"
+        fi
+
+        # --- 2. patch files --------------------------------------------
+        if [ -d "$FORK_ROOT/patches" ]; then
+          shopt -s nullglob
+          patch_files=("$FORK_ROOT"/patches/*.patch)
+          for p in "${patch_files[@]}"; do
+            echo "--- applying $(basename "$p")"
+            if ! ( cd "$TARGET" && patch -p1 --forward --fuzz=3 --no-backup-if-mismatch < "$p" ); then
+              echo "::error::Custom patch FAILED to apply: $(basename "$p")"
+              echo "Reject files / residuals:"
+              find "$TARGET" -name '*.rej' -o -name '*.orig' | head -20 || true
+              exit 1
+            fi
+            applied=$((applied+1))
+          done
+        fi
+
+        echo "Fork customisations: $applied patch file(s) applied"
+        echo "::endgroup::"
+
     - name: Build Kernel
       id: build_kernel_step
       shell: bash
@@ -2076,6 +2126,63 @@ runs:
         echo "============================================"
         ccache -s
         echo "============================================"
+        echo "::endgroup::"
+
+    # =====================================================================
+    # FORK GUARD - fails the build if a required kernel option is absent.
+    # Added after a build silently shipped without CONFIG_USER_NS, which
+    # broke docker inside Droidspaces with no build-time error at all.
+    # =====================================================================
+    - name: Verify Droidspaces kernel config
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Verify required kernel config"
+
+        REQ="$GITHUB_WORKSPACE/patches/required_config.txt"
+        CONFIG="$COMMON_KERNEL_FOLDER/out/.config"
+
+        if [ ! -f "$REQ" ]; then
+          echo "No patches/required_config.txt - skipping verification"
+          echo "::endgroup::"
+          exit 0
+        fi
+
+        if [ ! -f "$CONFIG" ]; then
+          echo "::error::Generated .config not found at $CONFIG - cannot verify"
+          exit 1
+        fi
+
+        n_req=$(grep -cve '^[[:space:]]*$' -e '^#' "$REQ" || true)
+        echo "Verifying $n_req required option(s) against out/.config"
+        echo
+
+        missing=0
+        while IFS= read -r line; do
+          case "$line" in
+            ''|'#'*) continue ;;
+          esac
+          opt="${line%%=*}"
+          want="${line#*=}"
+          opt="${opt%"${opt##*[![:space:]]}"}"
+          if grep -qxF "${opt}=${want}" "$CONFIG"; then
+            printf '  OK       %s=%s\n' "$opt" "$want"
+          else
+            actual=$(grep -E "^${opt}=|^# ${opt} is not set" "$CONFIG" | head -1 || true)
+            printf '  MISSING  %s=%s   (found: %s)\n' "$opt" "$want" "${actual:-<not present>}"
+            missing=$((missing+1))
+          fi
+        done < "$REQ"
+
+        echo
+        if [ "$missing" -gt 0 ]; then
+          echo "::error::$missing required kernel option(s) missing or wrong."
+          echo "::error::Refusing to ship this kernel - see the MISSING lines above."
+          echo "::error::Add them to patches/custom_defconfig.txt and rebuild."
+          exit 1
+        fi
+
+        echo "All required kernel options present and correct."
         echo "::endgroup::"
 
     - name: 📊 ccache Post-Build Statistics

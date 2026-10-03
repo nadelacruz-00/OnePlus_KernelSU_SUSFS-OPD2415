@@ -1,0 +1,83 @@
+# ============================================================================
+# Droidspaces kernel configuration - GKI block
+# ============================================================================
+# Source: https://github.com/ravindu644/Droidspaces-OSS
+#         Documentation/Kernel-Configuration.md  (section "Configuring GKI
+#         kernels", Step 2)
+# Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
+#
+# HOW THIS IS APPLIED
+#   The step "Apply Fork Custom Patches" appends this file to
+#   kernel_platform/common/arch/arm64/configs/gki_defconfig, immediately
+#   before `make gki_defconfig` runs. Because Kconfig honours the LAST
+#   assignment, these values win over anything an earlier CI step wrote.
+#
+# WHY THIS FILE EXISTS AT ALL
+#   Upstream already writes most of these, but the exact set has changed over
+#   time. The kernel currently running on this device was built 2026-06-30,
+#   BEFORE `CONFIG_USER_NS=y` was added, so it shipped with user namespaces
+#   absent and `docker-compose up` failed. Declaring the full block here means
+#   the set is explicit, reviewable, and immune to upstream drift.
+#
+# KABI SAFETY
+#   These options are kABI-safe ONLY in combination with the SYSVIPC kABI fix
+#   patch that the CI's "Add Droidspaces support" step applies. Do not enable
+#   anything beyond this block on a GKI kernel without checking the doc.
+#
+# ============================================================================
+
+# --- IPC -------------------------------------------------------------------
+CONFIG_SYSVIPC=y
+CONFIG_POSIX_MQUEUE=y
+
+# --- Namespaces ------------------------------------------------------------
+CONFIG_IPC_NS=y
+CONFIG_PID_NS=y
+
+# --- HW access -------------------------------------------------------------
+CONFIG_DEVTMPFS=y
+
+# --- Networking (enhanced NAT support) -------------------------------------
+CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
+
+# --- Fix for the "docker unsafe procfs" error ------------------------------
+# This is the one that was missing on the 2026-06-30 build.
+CONFIG_USER_NS=y
+
+# --- UFW support -----------------------------------------------------------
+CONFIG_NETFILTER_XT_TARGET_REJECT=y
+CONFIG_NETFILTER_XT_TARGET_LOG=y
+CONFIG_NETFILTER_XT_MATCH_RECENT=y
+
+# --- Fail2ban support ------------------------------------------------------
+CONFIG_IP_SET=y
+CONFIG_IP_SET_HASH_IP=y
+CONFIG_IP_SET_HASH_NET=y
+CONFIG_NETFILTER_XT_SET=y
+
+# --- xattr / POSIX ACL on tmpfs (NixOS support) ----------------------------
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_TMPFS_XATTR=y
+
+# ============================================================================
+# DEFERRED - not enabled for build #1, see note below
+# ============================================================================
+# The Droidspaces doc's "what to do if something is missing" table calls these
+# controllers FATAL for containers:
+#
+#     Cgroup device | CONFIG_CGROUP_DEVICE=y | Fatal. Containers cannot start.
+#
+# Measured on this device, /proc/cgroups lists only:
+#     cpuset cpu cpuacct blkio memory freezer net_prio
+# i.e. the `devices` and `pids` controllers are absent.
+#
+# BUT the doc's GKI block deliberately omits them and warns "Do not enable
+# anything beyond the GKI configuration below". So they are left OFF here to
+# match the documented kABI-safe set exactly.
+#
+# Build #1, then run:   su -c droidspaces check
+# If it reports the devices/pids controllers as missing, uncomment the two
+# lines below and rebuild - that is the only change needed.
+#
+#CONFIG_CGROUP_DEVICE=y
+#CONFIG_CGROUP_PIDS=y
