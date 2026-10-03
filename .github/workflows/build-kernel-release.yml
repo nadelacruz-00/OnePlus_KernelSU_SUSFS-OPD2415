@@ -33,7 +33,20 @@ on:
         description: 'Enter KernelSU build json'
         required: true
         type: string
-        default: '[{"type":"ksun","hash":"dev"}]'
+        # Pinned to the exact KernelSU-Next commit used by WildKernels
+        # release v2.2.0-r4 (2026-08-12), the last build that produced a
+        # working OnePlus Pad 3 (SM8750, 6.6.89) kernel.
+        #
+        # Why not "dev": the dev branch HEAD moves constantly. Today it is
+        # 2b31f718 (KSUVER 33313), but kernel_patches' susfs_fix_patches/v2.2.0
+        # set was authored against KSUVER 33239. Against a mismatched KSUN the
+        # SUSFS enablement patch leaves .rej files for files that have no fix
+        # patch (allowlist.c, ksud_integration.c, supercall.h), and the step
+        # aborts with "fix_<file>.patch: No such file or directory".
+        #
+        # 234f6e04 => KSUVER 33239, matching the fix patches exactly.
+        # Refresh both this and the SUSFS pin together, never one alone.
+        default: '[{"type":"ksun","hash":"234f6e040fcbca18b16d2398e1aa225712ec99ad"}]'
       optimize_level:
         description: "Compiler optimization level"
         required: true
@@ -73,22 +86,21 @@ on:
       android15-6_6_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android15-6.6'
         type: string
-        # Pinned to the newest susfs4ksu commit that still declares
-        # SUSFS_VERSION "v2.2.0".
+        # Pinned to the exact susfs4ksu commit used by WildKernels release
+        # v2.2.0-r4 (2026-08-12) -- the last build that produced a working
+        # OnePlus Pad 3 (SM8750, 6.6.89) kernel. Declares v2.2.0.
         #
-        # Why: leaving this empty makes the workflow resolve the
-        # gki-android15-6.6 branch HEAD. Since 2026-08-30 (commit eba2a88a
-        # "Bump version to 2.3.0") that HEAD is v2.3.0, and the build action
-        # only handles v1.5.8 .. v2.2.0 -- it aborts with
+        # Why not the branch HEAD: leaving this empty makes the workflow
+        # resolve gki-android15-6.6 HEAD, which since 2026-08-30 (eba2a88a
+        # "Bump version to 2.3.0") is v2.3.0. The build action's version case
+        # only covers v1.5.8 .. v2.2.0 and aborts with
         # "Unsupported SUSFS version: v2.3.0". Upstream main has the exact
         # same gap, so this is an upstream issue, not a local one.
         #
-        # This commit (2026-08-30, "KernelSU: Sync with the official KernelSU
-        # main repo") is the last v2.2.0 one, and v2.2.0 is also the SUSFS
-        # version already running on the target device.
-        #
-        # Revert to '' once upstream adds v2.3.0 handling.
-        default: 'da55e071ad01fac61fafcfc2b0c66ac22f5c44bf'
+        # This commit also matches kernel_patches' susfs_fix_patches/v2.2.0
+        # set, which is tuned for KernelSU-Next 33239 -- see the ksu_options
+        # pin above. Change both together.
+        default: 'be7b7ef49a1e1b189c3abf00eacaa7ebdb4168c1'
       android16-6_12_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android16-6.12'
         type: string
