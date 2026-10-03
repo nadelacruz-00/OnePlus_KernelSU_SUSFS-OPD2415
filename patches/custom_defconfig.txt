@@ -60,24 +60,36 @@ CONFIG_TMPFS_POSIX_ACL=y
 CONFIG_TMPFS_XATTR=y
 
 # ============================================================================
-# DEFERRED - not enabled for build #1, see note below
+# RESOLVED QUESTION - cgroup `devices` / `pids` controllers
 # ============================================================================
 # The Droidspaces doc's "what to do if something is missing" table calls these
-# controllers FATAL for containers:
+# FATAL for containers:
 #
 #     Cgroup device | CONFIG_CGROUP_DEVICE=y | Fatal. Containers cannot start.
 #
 # Measured on this device, /proc/cgroups lists only:
 #     cpuset cpu cpuacct blkio memory freezer net_prio
-# i.e. the `devices` and `pids` controllers are absent.
+# i.e. the `devices` and `pids` controllers are genuinely absent.
 #
-# BUT the doc's GKI block deliberately omits them and warns "Do not enable
-# anything beyond the GKI configuration below". So they are left OFF here to
-# match the documented kABI-safe set exactly.
+# ANSWERED by running the tool itself on the device:
 #
-# Build #1, then run:   su -c droidspaces check
-# If it reports the devices/pids controllers as missing, uncomment the two
-# lines below and rebuild - that is the only change needed.
+#     su -c /data/local/Droidspaces/bin/droidspaces check
+#     Droidspaces v6.6.0 ...
+#       [✓] Cgroup v2 support
+#       [✓] Cgroup namespace
+#       [✗] Sandboxing (user namespaces)
+#             CONFIG_USER_NS; enable per container with --allow-sandboxing.
+#             Needed by unprivileged Docker and Podman, ...
+#     Summary:
+#       [✓] All required features found!
 #
-#CONFIG_CGROUP_DEVICE=y
-#CONFIG_CGROUP_PIDS=y
+# Droidspaces v6.6.0 does NOT check for the devices/pids controllers and
+# reports every required feature present without them. The doc's table applies
+# to its non-GKI advice; for GKI the omission is deliberate and correct.
+#
+# => CONFIG_CGROUP_DEVICE / CONFIG_CGROUP_PIDS are NOT needed.
+#    The only missing feature was CONFIG_USER_NS, which is enabled above.
+#
+# If a future Droidspaces release starts flagging cgroup controllers, add them
+# here - but do not enable them speculatively.
+

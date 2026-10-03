@@ -64,16 +64,34 @@ Slot state lives in the **GPT attributes** (bit 54 = `successful_boot`, bits 48-
 bits 50-52 `tries_remaining`), so a non-booting kernel should revert on its own — see
 `../shared/opd2415-wildkernel-fork/gpt-slot-analysis/`.
 
-## Open item after build #1
+## cgroup `devices` / `pids` — checked, NOT needed
 
-`/proc/cgroups` on the device lists only `cpuset cpu cpuacct blkio memory freezer net_prio`.
-The Droidspaces doc calls the `devices` and `pids` controllers fatal, but its **GKI** block
-omits them by design ("do not enable anything beyond this block").
-
-If `droidspaces check` reports them missing, uncomment these two lines in
-`patches/custom_defconfig.txt` and rebuild:
+`/proc/cgroups` on the device lists only `cpuset cpu cpuacct blkio memory freezer net_prio`,
+so the `devices` and `pids` controllers are genuinely absent. The Droidspaces doc's
+non-GKI table calls those fatal — but running the tool settles it:
 
 ```
-CONFIG_CGROUP_DEVICE=y
-CONFIG_CGROUP_PIDS=y
+$ su -c /data/local/Droidspaces/bin/droidspaces check
+Droidspaces v6.6.0 - Checking system requirements...
+  [MUST HAVE]     ... all present ...
+  [RECOMMENDED]   ... [✓] Cgroup v2 support   [✓] Cgroup namespace ...
+  [OPTIONAL]      ... [✗] Sandboxing (user namespaces)
+                        CONFIG_USER_NS; enable per container with --allow-sandboxing.
+                        Needed by unprivileged Docker and Podman, ...
+Summary:
+  [✓] All required features found!
 ```
+
+**The only failing feature is `CONFIG_USER_NS`** — which is exactly what the build fixes.
+Droidspaces v6.6.0 does not check for the cgroup controllers at all, and the GKI omission
+in the doc is deliberate.
+
+So `CONFIG_CGROUP_DEVICE` / `CONFIG_CGROUP_PIDS` are **not needed** and are not enabled.
+Do not add them speculatively.
+
+### After flashing: one per-container flag
+
+The check output notes user namespaces are enabled **per container** with
+`--allow-sandboxing`. So if `docker-compose up` still complains after the kernel is updated,
+start the container with that flag.
+
