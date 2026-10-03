@@ -45,7 +45,17 @@ CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
 CONFIG_USER_NS=y
 
 # --- UFW support -----------------------------------------------------------
-CONFIG_NETFILTER_XT_TARGET_REJECT=y
+# NOTE: the Droidspaces doc lists CONFIG_NETFILTER_XT_TARGET_REJECT=y, but that
+# symbol does not exist in this kernel -- zero occurrences across every
+# netfilter Kconfig (net/netfilter, net/ipv4/netfilter, net/ipv6/netfilter,
+# net/bridge/netfilter). Kconfig silently ignores unknown symbols, so the CI
+# has been appending it as a no-op all along.
+#
+# The real iptables REJECT target is CONFIG_IP_NF_TARGET_REJECT, which depends
+# on CONFIG_IP_NF_FILTER. Both were already =y in the known-good Pad 3 kernel,
+# confirmed from the device's own /proc/config.gz.
+CONFIG_IP_NF_FILTER=y
+CONFIG_IP_NF_TARGET_REJECT=y
 CONFIG_NETFILTER_XT_TARGET_LOG=y
 CONFIG_NETFILTER_XT_MATCH_RECENT=y
 
