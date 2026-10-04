@@ -872,13 +872,29 @@ runs:
           echo "Using SUSFS branch/commit: $SUSFS_BRANCH"
           # SUSFS must be a real git checkout (not a tarball): the two glue commits
           # below are cherry-picked in. The GitHub mirror is kept as a clone fallback.
+          #
+          # IMPORTANT: the workflow resolves the SUSFS ref with a GraphQL
+          # `commit(ref: ...) { sha }` query and passes the RESULT as
+          # susfs_commit_hash_or_branch, so $SUSFS_BRANCH is normally a 40-char SHA.
+          # `git clone -b <sha>` fails ("Remote branch ... not found"), so clone the
+          # branch BY NAME and check the requested ref out afterwards.
           SUSFS_CLONE_DIR="$GITHUB_WORKSPACE/susfs4ksu"
+          SUSFS_DEFAULT_BRANCH="${DEFAULT_SUSFS[$KERNEL_KEY]:-gki-android15-6.6}"
           rm -rf "$SUSFS_CLONE_DIR"
-          git clone --depth 50 -b "$SUSFS_BRANCH" https://gitlab.com/simonpunk/susfs4ksu.git "$SUSFS_CLONE_DIR" \
-            || git clone --depth 50 -b "$SUSFS_BRANCH" https://github.com/nadelacruz-00/susfs4ksu.git "$SUSFS_CLONE_DIR"
+          git clone --depth 50 -b "$SUSFS_DEFAULT_BRANCH" https://gitlab.com/simonpunk/susfs4ksu.git "$SUSFS_CLONE_DIR" \
+            || git clone --depth 50 -b "$SUSFS_DEFAULT_BRANCH" https://github.com/nadelacruz-00/susfs4ksu.git "$SUSFS_CLONE_DIR"
           cd "$SUSFS_CLONE_DIR"
           git config user.email "ci@opd2415.local"
           git config user.name  "OPD2415 CI"
+          # Accept either a branch name or a SHA/tag for the requested ref.
+          if [ "$SUSFS_BRANCH" != "$SUSFS_DEFAULT_BRANCH" ]; then
+            if ! git checkout --detach "$SUSFS_BRANCH" 2>/dev/null; then
+              git fetch --depth 1 origin "$SUSFS_BRANCH" || git fetch --unshallow
+              git checkout --detach "$SUSFS_BRANCH" || {
+                echo "::error::cannot resolve SUSFS ref '$SUSFS_BRANCH'"; exit 1; }
+            fi
+            echo "SUSFS checked out at requested ref: $SUSFS_BRANCH"
+          fi
           git fetch --depth 50 https://gitlab.com/pershoot/susfs4ksu.git gki-android14-6.1-dev
           git cherry-pick 88df19e
           git cherry-pick 6d4f9a9
