@@ -46,7 +46,7 @@ on:
         #
         # 234f6e04 => KSUVER 33239, matching the fix patches exactly.
         # Refresh both this and the SUSFS pin together, never one alone.
-        default: '[{"type":"ksun","hash":"234f6e040fcbca18b16d2398e1aa225712ec99ad"}]'
+        default: '[{"type":"ksun","hash":"d2def5bc34e0265acd677ff7c8d490d417689c14"}]'
       optimize_level:
         description: "Compiler optimization level"
         required: true
@@ -100,7 +100,7 @@ on:
         # This commit also matches kernel_patches' susfs_fix_patches/v2.2.0
         # set, which is tuned for KernelSU-Next 33239 -- see the ksu_options
         # pin above. Change both together.
-        default: 'be7b7ef49a1e1b189c3abf00eacaa7ebdb4168c1'
+        default: ''
       android16-6_12_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android16-6.12'
         type: string
@@ -238,7 +238,7 @@ jobs:
           ksu_ref=$(echo "$ksu_options_normalized" | jq -r '.[0].hash')
           
           if [ "$ksu_type" == "KSUN" ]; then
-            KSU_REPO_OWNER="KernelSU-Next"
+            KSU_REPO_OWNER="pershoot"
             KSU_REPO_NAME="KernelSU-Next"
           else
             KSU_REPO_OWNER="tiann"
