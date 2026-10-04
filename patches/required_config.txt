@@ -42,3 +42,11 @@ CONFIG_NETFILTER_XT_SET=y
 # --- tmpfs -----------------------------------------------------------------
 CONFIG_TMPFS_POSIX_ACL=y
 CONFIG_TMPFS_XATTR=y
+
+# --- BINFMT ----------------------------------------------------------------
+CONFIG_BINFMT_MISC=y
+CONFIG_BINFMT_SCRIPT=y
+CONFIG_BINFMT_ELF=y
+
+# --- SUSFS -----------------------------------------------------------------
+CONFIG_KSU_SUSFS=y
